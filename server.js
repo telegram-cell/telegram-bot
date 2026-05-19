@@ -1,19 +1,32 @@
 const express = require("express");
 const axios = require("axios");
+const Razorpay = require("razorpay");
 
 const app = express();
 
 app.use(express.json());
 
 
-// ===== SETTINGS =====
+// ===== CONFIG =====
 
 const BOT_TOKEN = "8967748156:AAHa4oK4eqDsHr7d-haFpEtAmhuePbML3Xc";
 
 const GROUP_ID = "-1003978853785";
 
-const PAYMENT_LINK =
-"https://rzp.io/rzp/ugkoBhYG";
+const RAZORPAY_KEY_ID =
+"rzp_test_SrD9gMMFX4RKc2";
+
+const RAZORPAY_KEY_SECRET =
+"1Gh5u6oanhangbeIFq6Npl7O";
+
+
+// ===== RAZORPAY =====
+
+const razorpay = new Razorpay({
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
+});
+
 
 
 // ===== TELEGRAM START =====
@@ -28,19 +41,42 @@ app.post("/telegram", async (req, res) => {
 
       const chatId = msg.chat.id;
 
-      // payment link with telegram id
-      const finalLink =
-`${PAYMENT_LINK}?telegram_id=${chatId}`;
+
+      // create order
+
+      const order =
+await razorpay.orders.create({
+
+  amount: 9900,
+
+  currency: "INR",
+
+  receipt: "receipt_" + chatId,
+
+  notes: {
+    telegram_id: String(chatId),
+  }
+
+});
+
+
+      const paymentLink =
+`https://checkout.razorpay.com/v1/checkout.js?order_id=${order.id}`;
+
 
 
       await axios.post(
 `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
 {
   chat_id: chatId,
-  text:
-`✅ Payment karne ke liye niche click karo
 
-${finalLink}`
+  text:
+`✅ Payment karo:
+
+Order ID:
+${order.id}
+
+Aapka payment ready hai.`
 }
       );
 
@@ -60,7 +96,7 @@ ${finalLink}`
 
 
 
-// ===== RAZORPAY WEBHOOK =====
+// ===== WEBHOOK =====
 
 app.post("/razorpay", async (req, res) => {
 
@@ -69,10 +105,8 @@ app.post("/razorpay", async (req, res) => {
     const payment =
 req.body.payload.payment.entity;
 
-    const notes = payment.notes || {};
-
     const telegramId =
-notes.telegram_id;
+payment.notes.telegram_id;
 
     if (!telegramId) {
 
@@ -81,7 +115,8 @@ notes.telegram_id;
     }
 
 
-    // unique invite link
+
+    // create unique invite
 
     const invite =
 await axios.post(
@@ -102,7 +137,7 @@ invite.data.result.invite_link;
 
 
 
-    // send to user
+    // send invite
 
     await axios.post(
 `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
@@ -112,7 +147,7 @@ invite.data.result.invite_link;
   text:
 `✅ Payment Successful
 
-Group Join Link:
+Join Link:
 ${inviteLink}`
 }
     );
@@ -134,7 +169,7 @@ ${inviteLink}`
 
 app.get("/", (req, res) => {
 
-  res.send("Bot Running");
+  res.send("Running");
 
 });
 
@@ -142,6 +177,6 @@ app.get("/", (req, res) => {
 
 app.listen(3000, () => {
 
-  console.log("Running");
+  console.log("Server Started");
 
 });
